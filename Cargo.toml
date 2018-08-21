@@ -1,6 +1,6 @@
 [package]
 name = "rocket-cache-response"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Magic Len <len@magiclen.org>"]
 repository = "https://github.com/magiclen/rocket-cache-response"
 homepage = "https://magiclen.org/rocket-cache-response"
