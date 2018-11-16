@@ -1,28 +1,42 @@
-//! # Cache Response for Rocket Framework
-//! This crate provides a response struct used for HTTP cache control.
+/*!
+# Cache Response for Rocket Framework
+
+This crate provides a response struct used for HTTP cache control.
+
+See `examples`.
+*/
 
 extern crate rocket;
 
-use rocket::response::{self, Response, Responder};
+use rocket::response::{Response, Responder, Result};
 use rocket::request::Request;
 
-pub enum CacheResponse<'a, R: Responder<'a>> {
-    Public(R, u32, bool),
-    Private(R, u32),
+/// The responder with a `Cache-Control` header.
+#[derive(Debug)]
+pub enum CacheResponse<R: Responder<'static>> {
+    Public {
+        responder: R,
+        max_age: u32,
+        must_revalidate: bool,
+    },
+    Private {
+        responder: R,
+        max_age: u32,
+    },
     NoCache(R),
     NoStore(R),
-    NoCacheControl(R, &'a str), // this str is a trick to prevent unused lifetime parameter 'a
+    NoCacheControl(R),
 }
 
-impl<'a, R: Responder<'a>> Responder<'a> for CacheResponse<'a, R> {
-    fn respond_to(self, req: &Request) -> response::Result<'a> {
+impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
+    fn respond_to(self, req: &Request) -> Result<'static> {
         return match self {
-            CacheResponse::Public(responder, max_age, must_revalidate) => {
+            CacheResponse::Public { responder, max_age, must_revalidate } => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", if must_revalidate { format!("must-revalidate, public, max-age={}", max_age) } else { format!("public, max-age={}", max_age) })
                     .ok()
             }
-            CacheResponse::Private(responder, max_age) => {
+            CacheResponse::Private { responder, max_age } => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", format!("private, max-age={}", max_age))
                     .ok()
@@ -37,39 +51,10 @@ impl<'a, R: Responder<'a>> Responder<'a> for CacheResponse<'a, R> {
                     .raw_header("Cache-Control", "no-store")
                     .ok()
             }
-            CacheResponse::NoCacheControl(responder, _) => {
+            CacheResponse::NoCacheControl(responder) => {
                 Response::build_from(responder.respond_to(req)?)
                     .ok()
             }
         };
-    }
-}
-
-impl<'a, R: Responder<'a>> CacheResponse<'a, R> {
-    pub fn create_public_cache(responder: R, max_age: u32, must_revalidate: bool) -> CacheResponse<'a, R> {
-        CacheResponse::Public(
-            responder,
-            max_age,
-            must_revalidate,
-        )
-    }
-
-    pub fn create_private_cache(responder: R, max_age: u32) -> CacheResponse<'a, R> {
-        CacheResponse::Private(
-            responder,
-            max_age,
-        )
-    }
-
-    pub fn create_no_cache(responder: R) -> CacheResponse<'a, R> {
-        CacheResponse::NoCache(responder)
-    }
-
-    pub fn create_no_store(responder: R) -> CacheResponse<'a, R> {
-        CacheResponse::NoStore(responder)
-    }
-
-    pub fn create_no_cache_control(responder: R) -> CacheResponse<'a, R> {
-        CacheResponse::NoCacheControl(responder, "")
     }
 }

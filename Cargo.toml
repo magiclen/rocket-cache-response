@@ -10,5 +10,12 @@ description= "This crate provides a response struct used for HTTP cache control.
 readme = "README.md"
 license = "MIT"
 
+[badges]
+travis-ci = { repository = "magiclen/rocket-cache-response", branch = "master" }
+
 [dependencies]
-rocket = "0.3.15"
+rocket = ">=0.3.16"
+
+[dev-dependencies]
+rocket_codegen = ">=0.3.16"
+chrono = "0.4.6"
