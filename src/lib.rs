@@ -58,3 +58,29 @@ impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
         };
     }
 }
+
+impl<R: Responder<'static>> CacheResponse<R> {
+    /// Use public cache only when this program is built on the **release** mode.
+    #[cfg(debug_assertions)]
+    pub fn public_only_release(responder: R, _max_age: u32, _must_revalidate: bool) -> CacheResponse<R> {
+        CacheResponse::NoCacheControl(responder)
+    }
+
+    /// Use public cache only when this program is built on the **release** mode.
+    #[cfg(not(debug_assertions))]
+    pub fn public_only_release(responder: R, max_age: u32, must_revalidate: bool) -> CacheResponse<R> {
+        CacheResponse::Public { responder, max_age, must_revalidate }
+    }
+
+    /// Use private cache only when this program is built on the **release** mode.
+    #[cfg(debug_assertions)]
+    pub fn private_only_release(responder: R, _max_age: u32) -> CacheResponse<R> {
+        CacheResponse::NoCacheControl(responder)
+    }
+
+    /// Use private cache only when this program is built on the **release** mode.
+    #[cfg(not(debug_assertions))]
+    pub fn private_only_release(responder: R, max_age: u32) -> CacheResponse<R> {
+        CacheResponse::Private { responder, max_age }
+    }
+}
