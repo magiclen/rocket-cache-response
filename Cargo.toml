@@ -1,6 +1,6 @@
 [package]
 name = "rocket-cache-response"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Magic Len <len@magiclen.org>"]
 repository = "https://github.com/magiclen/rocket-cache-response"
 homepage = "https://magiclen.org/rocket-cache-response"
@@ -14,8 +14,7 @@ license = "MIT"
 travis-ci = { repository = "magiclen/rocket-cache-response", branch = "master" }
 
 [dependencies]
-rocket = ">=0.3.16"
+rocket = "0.4"
 
 [dev-dependencies]
-rocket_codegen = ">=0.3.16"
 chrono = "0.4.6"
