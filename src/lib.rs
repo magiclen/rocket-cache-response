@@ -8,8 +8,8 @@ See `examples`.
 
 extern crate rocket;
 
-use rocket::response::{Response, Responder, Result};
 use rocket::request::Request;
+use rocket::response::{Responder, Response, Result};
 
 /// The responder with a `Cache-Control` header.
 #[derive(Debug)]
@@ -30,13 +30,27 @@ pub enum CacheResponse<R: Responder<'static>> {
 
 impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
     fn respond_to(self, req: &Request) -> Result<'static> {
-        return match self {
-            CacheResponse::Public { responder, max_age, must_revalidate } => {
+        match self {
+            CacheResponse::Public {
+                responder,
+                max_age,
+                must_revalidate,
+            } => {
                 Response::build_from(responder.respond_to(req)?)
-                    .raw_header("Cache-Control", if must_revalidate { format!("must-revalidate, public, max-age={}", max_age) } else { format!("public, max-age={}", max_age) })
+                    .raw_header(
+                        "Cache-Control",
+                        if must_revalidate {
+                            format!("must-revalidate, public, max-age={}", max_age)
+                        } else {
+                            format!("public, max-age={}", max_age)
+                        },
+                    )
                     .ok()
             }
-            CacheResponse::Private { responder, max_age } => {
+            CacheResponse::Private {
+                responder,
+                max_age,
+            } => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", format!("private, max-age={}", max_age))
                     .ok()
@@ -52,24 +66,35 @@ impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
                     .ok()
             }
             CacheResponse::NoCacheControl(responder) => {
-                Response::build_from(responder.respond_to(req)?)
-                    .ok()
+                Response::build_from(responder.respond_to(req)?).ok()
             }
-        };
+        }
     }
 }
 
 impl<R: Responder<'static>> CacheResponse<R> {
     /// Use public cache only when this program is built on the **release** mode.
     #[cfg(debug_assertions)]
-    pub fn public_only_release(responder: R, _max_age: u32, _must_revalidate: bool) -> CacheResponse<R> {
+    pub fn public_only_release(
+        responder: R,
+        _max_age: u32,
+        _must_revalidate: bool,
+    ) -> CacheResponse<R> {
         CacheResponse::NoCacheControl(responder)
     }
 
     /// Use public cache only when this program is built on the **release** mode.
     #[cfg(not(debug_assertions))]
-    pub fn public_only_release(responder: R, max_age: u32, must_revalidate: bool) -> CacheResponse<R> {
-        CacheResponse::Public { responder, max_age, must_revalidate }
+    pub fn public_only_release(
+        responder: R,
+        max_age: u32,
+        must_revalidate: bool,
+    ) -> CacheResponse<R> {
+        CacheResponse::Public {
+            responder,
+            max_age,
+            must_revalidate,
+        }
     }
 
     /// Use private cache only when this program is built on the **release** mode.
@@ -81,6 +106,9 @@ impl<R: Responder<'static>> CacheResponse<R> {
     /// Use private cache only when this program is built on the **release** mode.
     #[cfg(not(debug_assertions))]
     pub fn private_only_release(responder: R, max_age: u32) -> CacheResponse<R> {
-        CacheResponse::Private { responder, max_age }
+        CacheResponse::Private {
+            responder,
+            max_age,
+        }
     }
 }
