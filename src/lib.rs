@@ -10,6 +10,7 @@ extern crate rocket;
 
 use std::marker::PhantomData;
 
+use rocket::http::hyper::header::{CacheControl, CacheDirective};
 use rocket::request::Request;
 use rocket::response::{Responder, Response, Result};
 
@@ -43,33 +44,37 @@ impl<'r, R: Responder<'r>> Responder<'r> for CacheResponsePro<'r, R> {
                 max_age,
                 must_revalidate,
             } => {
-                Response::build_from(responder.respond_to(req)?)
-                    .raw_header(
-                        "Cache-Control",
-                        if must_revalidate {
-                            format!("must-revalidate, public, max-age={}", max_age)
-                        } else {
-                            format!("public, max-age={}", max_age)
-                        },
-                    )
-                    .ok()
+                let cache_control = CacheControl({
+                    let mut v = vec![CacheDirective::Public, CacheDirective::MaxAge(max_age)];
+
+                    if must_revalidate {
+                        v.push(CacheDirective::MustRevalidate);
+                    }
+
+                    v
+                });
+
+                Response::build_from(responder.respond_to(req)?).header(cache_control).ok()
             }
             CacheResponsePro::Private {
                 responder,
                 max_age,
             } => {
                 Response::build_from(responder.respond_to(req)?)
-                    .raw_header("Cache-Control", format!("private, max-age={}", max_age))
+                    .header(CacheControl(vec![
+                        CacheDirective::Private,
+                        CacheDirective::MaxAge(max_age),
+                    ]))
                     .ok()
             }
             CacheResponsePro::NoCache(responder) => {
                 Response::build_from(responder.respond_to(req)?)
-                    .raw_header("Cache-Control", "no-cache")
+                    .header(CacheControl(vec![CacheDirective::NoCache]))
                     .ok()
             }
             CacheResponsePro::NoStore(responder) => {
                 Response::build_from(responder.respond_to(req)?)
-                    .raw_header("Cache-Control", "no-store")
+                    .header(CacheControl(vec![CacheDirective::NoStore]))
                     .ok()
             }
             CacheResponsePro::NoCacheControl(responder) => {
