@@ -8,12 +8,17 @@ See `examples`.
 
 extern crate rocket;
 
+use std::marker::PhantomData;
+
 use rocket::request::Request;
 use rocket::response::{Responder, Response, Result};
 
 /// The responder with a `Cache-Control` header.
+pub type CacheResponse<R> = CacheResponsePro<'static, R>;
+
+/// The responder with a `Cache-Control` header.
 #[derive(Debug)]
-pub enum CacheResponse<R: Responder<'static>> {
+pub enum CacheResponsePro<'r, R: Responder<'r>> {
     Public {
         responder: R,
         max_age: u32,
@@ -26,12 +31,14 @@ pub enum CacheResponse<R: Responder<'static>> {
     NoCache(R),
     NoStore(R),
     NoCacheControl(R),
+    #[doc(hidden)]
+    _Phantom(PhantomData<&'r R>),
 }
 
-impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
-    fn respond_to(self, req: &Request) -> Result<'static> {
+impl<'r, R: Responder<'r>> Responder<'r> for CacheResponsePro<'r, R> {
+    fn respond_to(self, req: &Request) -> Result<'r> {
         match self {
-            CacheResponse::Public {
+            CacheResponsePro::Public {
                 responder,
                 max_age,
                 must_revalidate,
@@ -47,7 +54,7 @@ impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
                     )
                     .ok()
             }
-            CacheResponse::Private {
+            CacheResponsePro::Private {
                 responder,
                 max_age,
             } => {
@@ -55,32 +62,33 @@ impl<R: Responder<'static>> Responder<'static> for CacheResponse<R> {
                     .raw_header("Cache-Control", format!("private, max-age={}", max_age))
                     .ok()
             }
-            CacheResponse::NoCache(responder) => {
+            CacheResponsePro::NoCache(responder) => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", "no-cache")
                     .ok()
             }
-            CacheResponse::NoStore(responder) => {
+            CacheResponsePro::NoStore(responder) => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", "no-store")
                     .ok()
             }
-            CacheResponse::NoCacheControl(responder) => {
+            CacheResponsePro::NoCacheControl(responder) => {
                 Response::build_from(responder.respond_to(req)?).ok()
             }
+            _ => unimplemented!(),
         }
     }
 }
 
-impl<R: Responder<'static>> CacheResponse<R> {
+impl<'r, R: Responder<'r>> CacheResponsePro<'r, R> {
     /// Use public cache only when this program is built on the **release** mode.
     #[cfg(debug_assertions)]
     pub fn public_only_release(
         responder: R,
         _max_age: u32,
         _must_revalidate: bool,
-    ) -> CacheResponse<R> {
-        CacheResponse::NoCacheControl(responder)
+    ) -> CacheResponsePro<'r, R> {
+        CacheResponsePro::NoCacheControl(responder)
     }
 
     /// Use public cache only when this program is built on the **release** mode.
@@ -89,8 +97,8 @@ impl<R: Responder<'static>> CacheResponse<R> {
         responder: R,
         max_age: u32,
         must_revalidate: bool,
-    ) -> CacheResponse<R> {
-        CacheResponse::Public {
+    ) -> CacheResponsePro<'r, R> {
+        CacheResponsePro::Public {
             responder,
             max_age,
             must_revalidate,
@@ -99,14 +107,14 @@ impl<R: Responder<'static>> CacheResponse<R> {
 
     /// Use private cache only when this program is built on the **release** mode.
     #[cfg(debug_assertions)]
-    pub fn private_only_release(responder: R, _max_age: u32) -> CacheResponse<R> {
-        CacheResponse::NoCacheControl(responder)
+    pub fn private_only_release(responder: R, _max_age: u32) -> CacheResponsePro<'r, R> {
+        CacheResponsePro::NoCacheControl(responder)
     }
 
     /// Use private cache only when this program is built on the **release** mode.
     #[cfg(not(debug_assertions))]
-    pub fn private_only_release(responder: R, max_age: u32) -> CacheResponse<R> {
-        CacheResponse::Private {
+    pub fn private_only_release(responder: R, max_age: u32) -> CacheResponsePro<'r, R> {
+        CacheResponsePro::Private {
             responder,
             max_age,
         }
