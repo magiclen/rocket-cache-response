@@ -14,11 +14,11 @@ use rocket::request::Request;
 use rocket::response::{Responder, Response, Result};
 
 /// The responder with a `Cache-Control` header.
-pub type CacheResponse<R> = CacheResponsePro<'static, R>;
+pub type CacheResponse<R> = CacheResponsePro<'static, 'static, R>;
 
 /// The responder with a `Cache-Control` header.
 #[derive(Debug)]
-pub enum CacheResponsePro<'r, R: Responder<'r>> {
+pub enum CacheResponsePro<'r, 'o: 'r, R: Responder<'r, 'o>> {
     Public {
         responder: R,
         max_age: u32,
@@ -32,11 +32,12 @@ pub enum CacheResponsePro<'r, R: Responder<'r>> {
     NoStore(R),
     NoCacheControl(R),
     #[doc(hidden)]
-    _Phantom(PhantomData<&'r R>),
+    _Phantom(PhantomData<(&'r R, &'o R)>),
 }
 
-impl<'r, R: Responder<'r>> Responder<'r> for CacheResponsePro<'r, R> {
-    fn respond_to(self, req: &Request) -> Result<'r> {
+#[rocket::async_trait]
+impl<'r, 'o: 'r, R: Responder<'r, 'o>> Responder<'r, 'o> for CacheResponsePro<'r, 'o, R> {
+    fn respond_to(self, req: &'r Request<'_>) -> Result<'o> {
         match self {
             CacheResponsePro::Public {
                 responder,
@@ -80,14 +81,14 @@ impl<'r, R: Responder<'r>> Responder<'r> for CacheResponsePro<'r, R> {
     }
 }
 
-impl<'r, R: Responder<'r>> CacheResponsePro<'r, R> {
+impl<'r, 'o: 'r, R: Responder<'r, 'o>> CacheResponsePro<'r, 'o, R> {
     /// Use public cache only when this program is built on the **release** mode.
     #[cfg(debug_assertions)]
     pub fn public_only_release(
         responder: R,
         _max_age: u32,
         _must_revalidate: bool,
-    ) -> CacheResponsePro<'r, R> {
+    ) -> CacheResponsePro<'r, 'o, R> {
         CacheResponsePro::NoCacheControl(responder)
     }
 
@@ -97,7 +98,7 @@ impl<'r, R: Responder<'r>> CacheResponsePro<'r, R> {
         responder: R,
         max_age: u32,
         must_revalidate: bool,
-    ) -> CacheResponsePro<'r, R> {
+    ) -> CacheResponsePro<'r, 'o, R> {
         CacheResponsePro::Public {
             responder,
             max_age,
@@ -107,13 +108,13 @@ impl<'r, R: Responder<'r>> CacheResponsePro<'r, R> {
 
     /// Use private cache only when this program is built on the **release** mode.
     #[cfg(debug_assertions)]
-    pub fn private_only_release(responder: R, _max_age: u32) -> CacheResponsePro<'r, R> {
+    pub fn private_only_release(responder: R, _max_age: u32) -> CacheResponsePro<'r, 'o, R> {
         CacheResponsePro::NoCacheControl(responder)
     }
 
     /// Use private cache only when this program is built on the **release** mode.
     #[cfg(not(debug_assertions))]
-    pub fn private_only_release(responder: R, max_age: u32) -> CacheResponsePro<'r, R> {
+    pub fn private_only_release(responder: R, max_age: u32) -> CacheResponsePro<'r, 'o, R> {
         CacheResponsePro::Private {
             responder,
             max_age,
