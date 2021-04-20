@@ -35,7 +35,6 @@ pub enum CacheResponsePro<'r, 'o: 'r, R: Responder<'r, 'o>> {
     _Phantom(PhantomData<(&'r R, &'o R)>),
 }
 
-#[rocket::async_trait]
 impl<'r, 'o: 'r, R: Responder<'r, 'o>> Responder<'r, 'o> for CacheResponsePro<'r, 'o, R> {
     fn respond_to(self, req: &'r Request<'_>) -> Result<'o> {
         match self {
