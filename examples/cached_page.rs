@@ -1,10 +1,6 @@
 #[macro_use]
 extern crate rocket;
 
-extern crate rocket_cache_response;
-
-extern crate chrono;
-
 use rocket_cache_response::CacheResponse;
 
 use chrono::prelude::*;

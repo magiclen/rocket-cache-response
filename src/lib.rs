@@ -6,8 +6,6 @@ This crate provides a response struct used for HTTP cache control.
 See `examples`.
 */
 
-extern crate rocket;
-
 use std::marker::PhantomData;
 
 use rocket::request::Request;
