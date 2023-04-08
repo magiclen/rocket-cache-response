@@ -8,8 +8,10 @@ See `examples`.
 
 use std::marker::PhantomData;
 
-use rocket::request::Request;
-use rocket::response::{Responder, Response, Result};
+use rocket::{
+    request::Request,
+    response::{Responder, Response, Result},
+};
 
 /// The responder with a `Cache-Control` header.
 pub type CacheResponse<R> = CacheResponsePro<'static, 'static, R>;
@@ -18,13 +20,13 @@ pub type CacheResponse<R> = CacheResponsePro<'static, 'static, R>;
 #[derive(Debug)]
 pub enum CacheResponsePro<'r, 'o: 'r, R: Responder<'r, 'o>> {
     Public {
-        responder: R,
-        max_age: u32,
+        responder:       R,
+        max_age:         u32,
         must_revalidate: bool,
     },
     Private {
         responder: R,
-        max_age: u32,
+        max_age:   u32,
     },
     NoCache(R),
     NoStore(R),
@@ -40,39 +42,35 @@ impl<'r, 'o: 'r, R: Responder<'r, 'o>> Responder<'r, 'o> for CacheResponsePro<'r
                 responder,
                 max_age,
                 must_revalidate,
-            } => {
-                Response::build_from(responder.respond_to(req)?)
-                    .raw_header(
-                        "Cache-Control",
-                        if must_revalidate {
-                            format!("must-revalidate, public, max-age={}", max_age)
-                        } else {
-                            format!("public, max-age={}", max_age)
-                        },
-                    )
-                    .ok()
-            }
+            } => Response::build_from(responder.respond_to(req)?)
+                .raw_header(
+                    "Cache-Control",
+                    if must_revalidate {
+                        format!("must-revalidate, public, max-age={}", max_age)
+                    } else {
+                        format!("public, max-age={}", max_age)
+                    },
+                )
+                .ok(),
             CacheResponsePro::Private {
                 responder,
                 max_age,
-            } => {
-                Response::build_from(responder.respond_to(req)?)
-                    .raw_header("Cache-Control", format!("private, max-age={}", max_age))
-                    .ok()
-            }
+            } => Response::build_from(responder.respond_to(req)?)
+                .raw_header("Cache-Control", format!("private, max-age={}", max_age))
+                .ok(),
             CacheResponsePro::NoCache(responder) => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", "no-cache")
                     .ok()
-            }
+            },
             CacheResponsePro::NoStore(responder) => {
                 Response::build_from(responder.respond_to(req)?)
                     .raw_header("Cache-Control", "no-store")
                     .ok()
-            }
+            },
             CacheResponsePro::NoCacheControl(responder) => {
                 Response::build_from(responder.respond_to(req)?).ok()
-            }
+            },
             _ => unimplemented!(),
         }
     }
